@@ -213,6 +213,9 @@ class RNNLM_Model(LanguageModel):
     self.predictions = [tf.nn.softmax(tf.cast(o, 'float64')) for o in self.outputs]			# 对projection进行softmax
     # Reshape the output into len(vocab) sized chunks - the -1 says as many as
     # needed to evenly divide
+    #这儿可以看见tf.concat的作用，注意，tf.concat的第一个参数是维度，第二个参数是一个list，里面存放多个shape相同的Tensor或者其他的数据格式
+    #然后tf.concat就可以实现通道连接了，tf.concat之后的shape为(batch_size,num_steps*embedding)
+    #再通过reshape操作就可以得到(batch_size*num_steps,embedding),即(bn,e)
     output = tf.reshape(tf.concat(1, self.outputs), [-1, len(self.vocab)])		# 对outputs进行reshape得到output
     self.calculate_loss = self.add_loss_op(output)								# 对output计算loss
     self.train_step = self.add_training_op(self.calculate_loss)					# 训练，使loss达到最小

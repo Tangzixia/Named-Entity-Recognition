@@ -107,10 +107,14 @@ class RNNLM_Model(LanguageModel):
       ### YOUR CODE HERE
       embedding = tf.get_variable(
           'Embedding',
-          [len(self.vocab), self.config.embed_size], trainable=True)				# L: (len(self.vocab), embed_size)
+          [len(self.vocab), self.config.embed_size], trainable=True)				# L: (len(self.vocab), embed_size
       inputs = tf.nn.embedding_lookup(embedding, self.input_placeholder)			# Looks up ids in a list of embedding tensors.
+      #经过验证，可以发现inputs此时的shape变为(?,self.config.num_steps,self.embedded_size)
+      #that is to say--->bne(batch_size,num_steps,embedded_size)
       inputs = [
           tf.squeeze(x, [1]) for x in tf.split(1, self.config.num_steps, inputs)]	# remove specific dimensions of size 1 at postion=[1]
+      #经过这一步操作，推测可能将Tensor的shape转化为了[(?,self.embedded_size),...,(?,self.embedded_size)],list的size为self.num_steps，
+      #即转化为了nbe,that is to say--->(num_steps,batch_size,embedded_size)
       ### END YOUR CODE
       return inputs
 
@@ -190,8 +194,13 @@ class RNNLM_Model(LanguageModel):
     self.config = config
     self.load_data(debug=False)
     self.add_placeholders()
+    #更多细节可以观看https://www.jianshu.com/p/b4c5ff7c450f，上面对为什么需要add_embedding层做了解释！
+    
+    #对rnn的输入进行转化，嵌入
     self.inputs = self.add_embedding()
+    #进行运算，得到隐藏状态，即hidden_state，注意这儿写的rnn_outputs实际上还不是最后的输出
     self.rnn_outputs = self.add_model(self.inputs)								# rnn网络
+    #这里进行运算，得到了最后的输出
     self.outputs = self.add_projection(self.rnn_outputs)						# 对rnn输出结果进行projection
   
     # We want to check how well we correctly predict the next word

@@ -110,7 +110,7 @@ class RNNLM_Model(LanguageModel):
           [len(self.vocab), self.config.embed_size], trainable=True)				# L: (len(self.vocab), embed_size
       inputs = tf.nn.embedding_lookup(embedding, self.input_placeholder)			# Looks up ids in a list of embedding tensors.
       #经过验证，可以发现inputs此时的shape变为(?,self.config.num_steps,self.embedded_size)
-      #that is to say--->bne(batch_size,num_steps,embedded_size)
+      #that is to say--->对应的shape转化为了bne，即(batch_size,num_steps,embedded_size)
       inputs = [
           tf.squeeze(x, [1]) for x in tf.split(1, self.config.num_steps, inputs)]	# remove specific dimensions of size 1 at postion=[1]
       #经过这一步操作，推测可能将Tensor的shape转化为了[(?,self.embedded_size),...,(?,self.embedded_size)],list的size为self.num_steps，
@@ -138,6 +138,9 @@ class RNNLM_Model(LanguageModel):
                (batch_size, len(vocab)
     """
     ### YOUR CODE HERE
+    #此时添加projection操作，即
+    #针对hidden_layer此时进行转化,turn the list[] which contains num_sizes Tensors which shape are (batch_size,hidden_size
+    #into a list[] contains num_sizes Tensors which shape are (batch_size,embedded_size)
     with tf.variable_scope('Projection'):
       U = tf.get_variable(
           'Matrix', [self.config.hidden_size, len(self.vocab)])
@@ -198,7 +201,8 @@ class RNNLM_Model(LanguageModel):
     
     #对rnn的输入进行转化，嵌入
     self.inputs = self.add_embedding()
-    #进行运算，得到隐藏状态，即hidden_state，注意这儿写的rnn_outputs实际上还不是最后的输出
+    #进行运算，得到隐藏状态，即hidden_state，注意这儿写的rnn_outputs实际上还不是最后的输出，[]里面包括的数据shape为bh-->(batch_size,hidden_size)
+    #list的size为num_steps,actually we can view this a tensor which shape is (nbh)--->(num_steps,batch_size,hidden_size)
     self.rnn_outputs = self.add_model(self.inputs)								# rnn网络
     #这里进行运算，得到了最后的输出
     self.outputs = self.add_projection(self.rnn_outputs)						# 对rnn输出结果进行projection
@@ -257,6 +261,7 @@ class RNNLM_Model(LanguageModel):
       inputs = [tf.nn.dropout(x, self.dropout_placeholder) for x in inputs]			# dropout of inputs
 
     with tf.variable_scope('RNN') as scope:
+      
       self.initial_state = tf.zeros(												# initial state of RNN
           [self.config.batch_size, self.config.hidden_size])
       state = self.initial_state
@@ -264,15 +269,18 @@ class RNNLM_Model(LanguageModel):
       for tstep, current_input in enumerate(inputs):								# tstep 多少个时刻，多少个单词
         if tstep > 0:
           scope.reuse_variables()
+          #如何把当前状态和以往的状态联系起来呢，scope.reuse_variables()，通过这样设置，state运算中的state就是前一状态的state
         RNN_H = tf.get_variable(
             'HMatrix', [self.config.hidden_size, self.config.hidden_size])			
         RNN_I = tf.get_variable(
             'IMatrix', [self.config.embed_size, self.config.hidden_size])
         RNN_b = tf.get_variable(
             'B', [self.config.hidden_size])
+        #这样我们得到的state的shape就是（batch_size,hidden_size)
         state = tf.nn.sigmoid(
             tf.matmul(state, RNN_H) + tf.matmul(current_input, RNN_I) + RNN_b)		# 看这里state应该是当前时刻的隐藏层
         rnn_outputs.append(state)													# 不过它在下一个循环中就被用了，所以也是用来存上一时刻隐藏层的
+        #因为有num_steps
       self.final_state = rnn_outputs[-1]
 
     with tf.variable_scope('RNNDropout'):
